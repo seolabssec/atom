@@ -105,7 +105,7 @@ class NativeCompileCache {
           global.v8debug.Debug.setBreakPoint(compiledWrapper, 0, 0)
         }
       }
-      let args = [moduleSelf.exports, require, moduleSelf, filename, dirname, process, global]
+      let args = [moduleSelf.exports, require, moduleSelf, filename, dirname, process, global, Buffer]
       return compiledWrapper.apply(moduleSelf.exports, args)
     }
   }

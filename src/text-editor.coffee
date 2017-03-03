@@ -748,9 +748,6 @@ class TextEditor extends Model
 
   isMini: -> @mini
 
-  setUpdatedSynchronously: (updatedSynchronously) ->
-    @decorationManager.setUpdatedSynchronously(updatedSynchronously)
-
   onDidChangeMini: (callback) ->
     @emitter.on 'did-change-mini', callback
 

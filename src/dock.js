@@ -300,6 +300,24 @@ module.exports = class Dock {
     return initialSize == null ? DEFAULT_INITIAL_SIZE : initialSize
   }
 
+  serialize () {
+    return {
+      deserializer: 'Dock',
+      size: this.state.size,
+      paneContainer: this.paneContainer.serialize(),
+      open: this.state.open
+    }
+  }
+
+  deserialize (serialized, deserializerManager) {
+    this.paneContainer.deserialize(serialized.paneContainer, deserializerManager)
+    this.setState({
+      size: serialized.size,
+      // If no items could be deserialized, we don't wan to show the dock (even if it was oepn last time)
+      open: serialized.open && (this.paneContainer.getPaneItems().length > 0)
+    })
+  }
+
   // PaneContainer-delegating methods
 
   getItems () {

@@ -616,46 +616,6 @@ module.exports = class Workspace extends Model {
       .then(item => this.openItem(item, Object.assign({pane, uri}, options)))
   }
 
-  // Returns a {Promise} that resolves to the {TextEditor} (or other item) for the given URI.
-  createItemForURI (uri, options) {
-    if (uri != null) {
-      for (let opener of this.getOpeners()) {
-        const item = opener(uri, options)
-        if (item != null) return Promise.resolve(item)
-      }
-    }
-
-    try {
-      return this.openTextFile(uri, options)
-    } catch (error) {
-      switch (error.code) {
-        case 'CANCELLED':
-          return Promise.resolve()
-        case 'EACCES':
-          this.notificationManager.addWarning(`Permission denied '${error.path}'`)
-          return Promise.resolve()
-        case 'EPERM':
-        case 'EBUSY':
-        case 'ENXIO':
-        case 'EIO':
-        case 'ENOTCONN':
-        case 'UNKNOWN':
-        case 'ECONNRESET':
-        case 'EINVAL':
-        case 'EMFILE':
-        case 'ENOTDIR':
-        case 'EAGAIN':
-          this.notificationManager.addWarning(
-            `Unable to open '${error.path != null ? error.path : uri}'`,
-            {detail: error.message}
-          )
-          return Promise.resolve()
-        default:
-          throw error
-      }
-    }
-  }
-
   openItem (item, options = {}) {
     const {pane} = options
 
@@ -694,6 +654,46 @@ module.exports = class Workspace extends Model {
     const uri = options.uri == null && typeof item.getURI === 'function' ? item.getURI() : options.uri
     this.emitter.emit('did-open', {uri, pane, item, index})
     return item
+  }
+
+  // Returns a {Promise} that resolves to the {TextEditor} (or other item) for the given URI.
+  createItemForURI (uri, options) {
+    if (uri != null) {
+      for (let opener of this.getOpeners()) {
+        const item = opener(uri, options)
+        if (item != null) return Promise.resolve(item)
+      }
+    }
+
+    try {
+      return this.openTextFile(uri, options)
+    } catch (error) {
+      switch (error.code) {
+        case 'CANCELLED':
+          return Promise.resolve()
+        case 'EACCES':
+          this.notificationManager.addWarning(`Permission denied '${error.path}'`)
+          return Promise.resolve()
+        case 'EPERM':
+        case 'EBUSY':
+        case 'ENXIO':
+        case 'EIO':
+        case 'ENOTCONN':
+        case 'UNKNOWN':
+        case 'ECONNRESET':
+        case 'EINVAL':
+        case 'EMFILE':
+        case 'ENOTDIR':
+        case 'EAGAIN':
+          this.notificationManager.addWarning(
+            `Unable to open '${error.path != null ? error.path : uri}'`,
+            {detail: error.message}
+          )
+          return Promise.resolve()
+        default:
+          throw error
+      }
+    }
   }
 
   openTextFile (uri, options) {

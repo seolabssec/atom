@@ -19,6 +19,10 @@ class PanelContainerElement extends HTMLElement {
     this.subscriptions.add(this.model.onDidAddPanel(this.panelAdded.bind(this)))
     this.subscriptions.add(this.model.onDidDestroy(this.destroyed.bind(this)))
     this.classList.add(this.model.getLocation())
+
+    // Add all the panels already in the model
+    this.model.getPanels().forEach((panel, index) => { this.panelAdded({panel, index}) })
+
     return this
   }
 

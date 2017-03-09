@@ -5,8 +5,9 @@
 const {ipcRenderer} = require('electron')
 const path = require('path')
 const fs = require('fs-plus')
-const {CompositeDisposable} = require('event-kit')
+const {CompositeDisposable, Disposable} = require('event-kit')
 const scrollbarStyle = require('scrollbar-style')
+const _ = require('underscore-plus')
 
 class WorkspaceElement extends HTMLElement {
   attachedCallback () {
@@ -64,6 +65,13 @@ class WorkspaceElement extends HTMLElement {
   }
 
   initialize (model, {views, workspace, project, config, styles}) {
+    this.handlePanelContainerEnter = this.handlePanelContainerEnter.bind(this)
+    this.handlePanelContainerMouseMove = _.throttle(this.handlePanelContainerMouseMove.bind(this), 100)
+    this.handlePanelContainerDragEnd = this.handlePanelContainerDragEnd.bind(this)
+    this.handleDragStart = this.handleDragStart.bind(this)
+    this.handleDragEnd = this.handleDragEnd.bind(this)
+    this.handleDrop = this.handleDrop.bind(this)
+
     this.model = model
     this.views = views
     this.workspace = workspace
@@ -76,7 +84,15 @@ class WorkspaceElement extends HTMLElement {
     if (this.config == null) { throw new Error('Must pass a config parameter when initializing WorskpaceElements') }
     if (this.styles == null) { throw new Error('Must pass a styles parameter when initializing WorskpaceElements') }
 
-    this.subscriptions = new CompositeDisposable()
+    this.subscriptions = new CompositeDisposable(
+      new Disposable(() => {
+        window.removeEventListener('mousemove', this.handlePanelContainerMouseMove)
+        window.removeEventListener('dragend', this.handlePanelContainerDragEnd)
+        window.removeEventListener('dragstart', this.handleDragStart)
+        window.removeEventListener('dragend', this.handleDragEnd, true)
+        window.removeEventListener('drop', this.handleDrop, true)
+      })
+    )
     this.initializeContent()
     this.observeScrollbarStyle()
     this.observeTextEditorFontConfig()
@@ -86,6 +102,7 @@ class WorkspaceElement extends HTMLElement {
     this.addEventListener('focus', this.handleFocus.bind(this))
 
     this.addEventListener('mousewheel', this.handleMousewheel.bind(this), true)
+    window.addEventListener('dragstart', this.handleDragStart)
 
     this.panelContainers = {
       top: this.views.getView(this.model.panelContainers.top),
@@ -108,10 +125,85 @@ class WorkspaceElement extends HTMLElement {
 
     this.appendChild(this.panelContainers.modal)
 
+    const edgeContainersWithDocks = [
+      this.panelContainers.left,
+      this.panelContainers.right,
+      this.panelContainers.bottom,
+      this.panelContainers.footer
+    ]
+    edgeContainersWithDocks.forEach(container => {
+      container.addEventListener('mouseenter', this.handlePanelContainerEnter)
+    })
+
     return this
   }
 
   getModel () { return this.model }
+
+  handleDragStart (event) {
+    // FIXME(matthewwithanm): Should we check to see if what's being dragged is a tab here? Is there a less coupled way to know if it's droppable here?
+    this.model.setDraggingItem(true)
+    window.addEventListener('dragend', this.handleDragEnd, true)
+    window.addEventListener('drop', this.handleDrop, true)
+  }
+
+  handleDragEnd (event) {
+    this.dragEnded()
+  }
+
+  handleDrop (event) {
+    this.dragEnded()
+  }
+
+  dragEnded () {
+    this.model.setDraggingItem(false)
+    window.removeEventListener('dragend', this.handleDragEnd, true)
+    window.removeEventListener('drop', this.handleDrop, true)
+  }
+
+  // When the mouse enters one of the panel containers, start using mousemove events to determine if
+  // it's within the area for which we want to show the toggle buttons.
+  // FIXME(matthewwithanm): This is an optimization that doesn't actually always hold up. For
+  // example, if you mouse into the footer and then, while staying in the footer, mouse underneath
+  // the left panel, the bottom dock's toggle button will (correctly) be hidden. However, if you
+  // then (while staying in the footer) move the mouse away from the left panel, the bottom dock's
+  // toggle button should reappear. It doesn't, because we haven't heard a mouseenter on a panel.
+  handlePanelContainerEnter (event) {
+    const containerEl = event.currentTarget
+    const containerLocation = containerEl.getModel().location
+    const dockLocation = containerLocation === 'footer' ? 'bottom' : containerLocation
+    const dock = this.model.docks[dockLocation]
+    this.hoveredDockCandidate = dock
+    this.updateHoveredDock(event)
+    window.addEventListener('mousemove', this.handlePanelContainerMouseMove)
+    window.addEventListener('dragend', this.handlePanelContainerDragEnd)
+  }
+
+  handlePanelContainerMouseMove (event) {
+    this.updateHoveredDock({x: event.pageX, y: event.pageY})
+  }
+
+  handlePanelContainerDragEnd (event) {
+    this.updateHoveredDock({x: event.pageX, y: event.pageY})
+  }
+
+  updateHoveredDock (mousePosition) {
+    if (this.model.hoveredDock) {
+      const hideToggleButton = !this.model.hoveredDock
+        || !this.model.hoveredDock.pointWithinHoverArea(mousePosition, true)
+      if (hideToggleButton) {
+        this.model.setHoveredDock(null)
+        window.removeEventListener('mousemove', this.handlePanelContainerMouseMove)
+        window.removeEventListener('dragend', this.handlePanelContainerDragEnd)
+      }
+    } else {
+      const showToggleButton = this.hoveredDockCandidate
+        && this.hoveredDockCandidate.pointWithinHoverArea(mousePosition, false)
+      if (showToggleButton) {
+        this.model.setHoveredDock(this.hoveredDockCandidate)
+      }
+    }
+  }
 
   handleMousewheel (event) {
     if (event.ctrlKey && this.config.get('editor.zoomFontWhenCtrlScrolling') && (event.target.closest('atom-text-editor') != null)) {

@@ -7,6 +7,7 @@ const {Emitter, Disposable, CompositeDisposable} = require('event-kit')
 const fs = require('fs-plus')
 const {Directory} = require('pathwatcher')
 const DefaultDirectorySearcher = require('./default-directory-searcher')
+const Dock = require('./dock')
 const Model = require('./model')
 const TextEditor = require('./text-editor')
 const PaneContainer = require('./pane-container')
@@ -41,6 +42,8 @@ module.exports = class Workspace extends Model {
     this.assert = params.assert
     this.deserializerManager = params.deserializerManager
     this.textEditorRegistry = params.textEditorRegistry
+    this.hoveredDock = null
+    this.draggingItem = false
 
     this.emitter = new Emitter()
     this.openers = []
@@ -67,7 +70,27 @@ module.exports = class Workspace extends Model {
       modal: new PanelContainer({location: 'modal'})
     }
 
+    this.docks = {
+      left: this.createDock('left'),
+      right: this.createDock('right'),
+      bottom: this.createDock('bottom')
+    }
+
     this.subscribeToEvents()
+  }
+
+  createDock (location) {
+    const dock = new Dock({
+      location,
+      config: this.config,
+      applicationDelegate: this.applicationDelegate,
+      deserializerManager: this.deserializerManager,
+      notificationManager: this.notificationManager,
+      viewRegistry: this.viewRegistry
+    })
+    dock.onDidDestroyPaneItem(this.didDestroyPaneItem)
+    this.addPanel(location, {priority: 0, item: dock})
+    return dock
   }
 
   reset (packageManager) {
@@ -94,6 +117,12 @@ module.exports = class Workspace extends Model {
       header: new PanelContainer({location: 'header'}),
       footer: new PanelContainer({location: 'footer'}),
       modal: new PanelContainer({location: 'modal'})
+    }
+
+    this.docks = {
+      left: this.createDock('left'),
+      right: this.createDock('right'),
+      bottom: this.createDock('bottom')
     }
 
     this.originalFontSize = null
@@ -167,6 +196,19 @@ module.exports = class Workspace extends Model {
     }
 
     return _.uniq(packageNames)
+  }
+
+  setHoveredDock (hoveredDock) {
+    this.hoveredDock = hoveredDock
+    _.values(this.docks).forEach(dock => {
+      dock.setHovered(dock === hoveredDock)
+    })
+  }
+
+  setDraggingItem (draggingItem) {
+    _.values(this.docks).forEach(dock => {
+      dock.setDraggingItem(draggingItem)
+    })
   }
 
   subscribeToActiveItem () {

@@ -1195,16 +1195,16 @@ i = /test/; #FIXME\
     describe('::addLeftPanel(model)', () => {
       it('adds a panel to the correct panel container', () => {
         let addPanelSpy
-        expect(atom.workspace.getLeftPanels().length).toBe(0)
+        expect(atom.workspace.getLeftPanels().length).toBe(1) // Only the dock should be there.
         atom.workspace.panelContainers.left.onDidAddPanel(addPanelSpy = jasmine.createSpy())
 
         const model = new TestItem()
         const panel = atom.workspace.addLeftPanel({item: model})
 
         expect(panel).toBeDefined()
-        expect(addPanelSpy).toHaveBeenCalledWith({panel, index: 0})
+        expect(addPanelSpy).toHaveBeenCalledWith({panel, index: 1})
 
-        const itemView = atom.views.getView(atom.workspace.getLeftPanels()[0].getItem())
+        const itemView = atom.views.getView(atom.workspace.getLeftPanels()[1].getItem())
         expect(itemView instanceof TestItemElement).toBe(true)
         expect(itemView.getModel()).toBe(model)
       })
@@ -1213,7 +1213,7 @@ i = /test/; #FIXME\
     describe('::addRightPanel(model)', () => {
       it('adds a panel to the correct panel container', () => {
         let addPanelSpy
-        expect(atom.workspace.getRightPanels().length).toBe(0)
+        expect(atom.workspace.getRightPanels().length).toBe(1) // Only the dock should be there.
         atom.workspace.panelContainers.right.onDidAddPanel(addPanelSpy = jasmine.createSpy())
 
         const model = new TestItem()
@@ -1249,7 +1249,7 @@ i = /test/; #FIXME\
     describe('::addBottomPanel(model)', () => {
       it('adds a panel to the correct panel container', () => {
         let addPanelSpy
-        expect(atom.workspace.getBottomPanels().length).toBe(0)
+        expect(atom.workspace.getBottomPanels().length).toBe(1) // Only the dock should be there.
         atom.workspace.panelContainers.bottom.onDidAddPanel(addPanelSpy = jasmine.createSpy())
 
         const model = new TestItem()

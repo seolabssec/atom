@@ -2095,9 +2095,9 @@ class TextEditor extends Model
   #
   # Returns the first matched {Cursor} or undefined
   getCursorAtScreenPosition: (position) ->
-    for cursor in @cursors
-      return cursor if cursor.getScreenPosition().isEqual(position)
-    undefined
+    if selection = @getSelectionAtScreenPosition(position)
+      if selection.getHeadScreenPosition().isEqual(position)
+        selection.cursor
 
   # Essential: Get the position of the most recently added cursor in screen
   # coordinates.
@@ -2645,6 +2645,12 @@ class TextEditor extends Model
   getLastSelection: ->
     @createLastSelectionIfNeeded()
     _.last(@selections)
+
+  getSelectionAtScreenPosition: (position) ->
+    debugger if global.debug
+    markers = @selectionsMarkerLayer.findMarkers(containsScreenPosition: position)
+    if markers.length > 0
+      @cursorsByMarkerId.get(markers[0].id).selection
 
   # Extended: Get current {Selection}s.
   #
